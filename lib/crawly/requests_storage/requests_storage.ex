@@ -23,6 +23,20 @@ defmodule Crawly.RequestsStorage do
   All requests are going through one RequestsStorage process, which
   quickly finds the actual worker, which finally stores the request
   afterwords.
+
+  ## Pluggable Backends
+
+  By default, the requests will be stored in memory using `Crawly.RequestsStorage.MemoryBackend`.
+  This approach is easy to use and fast, but have some drawbacks such as not supporting restarts
+  and distributing between nodes.
+
+  The storage backend can be customized with a module adhering to the `Crawly.RequestsStorage.Backend`
+  behaviour. The backend can be configured as following:
+
+  ```
+  config :crawly, :requests_storage_backend, MyApp.CustomBackend
+  ```
+
   """
   require Logger
 

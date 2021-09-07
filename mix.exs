@@ -99,7 +99,9 @@ defmodule Crawly.Mixfile do
           Crawly.DataStorage,
           Crawly.DataStorage.Worker,
           Crawly.RequestsStorage,
-          Crawly.RequestsStorage.Worker
+          Crawly.RequestsStorage.Worker,
+          Crawly.RequestsStorage.Backend,
+          Crawly.RequestsStorage.MemoryBackend
         ]
       ],
       extras: extras(),

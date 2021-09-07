@@ -13,7 +13,7 @@ defmodule Crawly.RequestsStorage.Worker do
 
   use GenServer
 
-  defstruct requests: [], count: 0, spider_name: nil, crawl_id: nil
+  defstruct spider_name: nil, crawl_id: nil, provider: nil
 
   alias Crawly.RequestsStorage.Worker
 
@@ -54,7 +54,20 @@ defmodule Crawly.RequestsStorage.Worker do
       "Starting requests storage worker for #{inspect(spider_name)}..."
     )
 
-    {:ok, %Worker{requests: [], spider_name: spider_name, crawl_id: crawl_id}}
+    provider =
+      Crawly.Utils.get_settings(
+        :requests_storage_backend,
+        spider_name,
+        Crawly.RequestsStorage.MemoryBackend
+      )
+
+    state = %Worker{
+      spider_name: spider_name,
+      crawl_id: crawl_id,
+      provider: provider
+    }
+
+    {:ok, provider.init(state)}
   end
 
   # Store the given requests
@@ -64,21 +77,14 @@ defmodule Crawly.RequestsStorage.Worker do
   end
 
   # Get current request from the storage
-  def handle_call(:pop, _from, state) do
-    %Worker{requests: requests, count: cnt} = state
-
-    {request, rest, new_cnt} =
-      case requests do
-        [] -> {nil, [], 0}
-        [request] -> {request, [], 0}
-        [request | rest] -> {request, rest, cnt - 1}
-      end
-
-    {:reply, request, %Worker{state | requests: rest, count: new_cnt}}
+  def handle_call(:pop, _from, %{provider: provider} = state) do
+    {request, state} = provider.pop(state)
+    {:reply, request, state}
   end
 
   def handle_call(:stats, _from, state) do
-    {:reply, {:stored_requests, state.count}, state}
+    %{provider: provider} = state
+    {:reply, provider.stats(state), state}
   end
 
   defp do_call(pid, command) do
@@ -88,18 +94,14 @@ defmodule Crawly.RequestsStorage.Worker do
       Logger.debug(Exception.format(error, reason, __STACKTRACE__))
   end
 
-  defp pipe_request(request, state) do
+  defp pipe_request(request, %{provider: provider} = state) do
     case Crawly.Utils.pipe(request.middlewares, request, state) do
       {false, new_state} ->
         new_state
 
       {new_request, new_state} ->
         # Process request here....
-        %{
-          new_state
-          | count: state.count + 1,
-            requests: [new_request | state.requests]
-        }
+        provider.store(new_state, new_request)
     end
   end
 end
