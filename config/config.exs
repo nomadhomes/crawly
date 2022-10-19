@@ -65,4 +65,13 @@ config :crawly,
     Crawly.Pipelines.JSONEncoder
   ]
 
+config :logger_json, :backend,
+  metadata: :all,
+  json_encoder: Jason,
+  level: :info,
+  formatter: LoggerJSON.Formatters.DatadogLogger
+
+config :logger,
+  backends: [LoggerJSON]
+
 import_config "#{Mix.env()}.exs"
